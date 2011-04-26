@@ -4,12 +4,11 @@ Simple JPEG Exif data reader in pure Python
 
 ## Name
 
-Crackle & Pop! [1]
-[1]: http://en.wikipedia.org/wiki/Herbert_and_Dorothy_Vogel
+http://en.wikipedia.org/wiki/Herbert_and_Dorothy_Vogel
 
 # TODO
 
-* Libify
+* Libify etc.
 * Refactor TIFFFrame into more self contained units
 * Testing
 
