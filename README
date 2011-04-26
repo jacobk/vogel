@@ -1,3 +1,15 @@
-Crackle & Pop! [1]
+# About
 
-[1]: http://en.wikipedia.org/wiki/Herbert_and_Dorothy_Vogel "the vogels"
+Simple JPEG Exif data reader in pure Python
+
+## Name
+
+Crackle & Pop! [1]
+[1]: http://en.wikipedia.org/wiki/Herbert_and_Dorothy_Vogel
+
+# TODO
+
+* Libify
+* Refactor TIFFFrame into more self contained units
+* Testing
+
