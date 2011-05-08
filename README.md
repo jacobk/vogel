@@ -5,7 +5,6 @@
 * Remove mmap dependency
 * Allow multiple input sources. e.g. files, string, etc.
 * Refactor TIFFFrame into more self contained units
-* Find test data
 * Testing
 
 # About
