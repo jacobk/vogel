@@ -1,25 +1,26 @@
 import sys
+import StringIO
 import struct
 import os
-import mmap
 
 
 class JPEGError(Exception):
     """Base class for exception in the JPEG module"""
 
 
-class JPEGImageFile(object):
+class JPEGImage(object):
     START_MARKER = "\xff"
     SOI = "\xd8"
     APP1 = "\xe1"
     HEADER_LEN = 4
 
-    def __init__(self, fname):
-        self.image_file = open(fname, "r+b")
-        self.image = mmap.mmap(self.image_file.fileno(), 0)
+    def __init__(self, image):
+        if isinstance(image, basestring):
+            self.image = StringIO(image)
+        else:
+            self.image = image
         self._verify_jpeg()
         self._extract_app1_data()
-        self.image_file.close()
 
     def _verify_jpeg(self):
         self.image.seek(0)
@@ -34,7 +35,15 @@ class JPEGImageFile(object):
         self.app1_segment = AppMarkerSegment(self.image, offset, length)
 
     def _find_app_marker(self, app_marker):
-        return self.image.find(self.START_MARKER + app_marker)
+        self.image.seek(0)
+        buf, loc = "", -1
+        while loc < 0:
+            chunk = self.image.read(1024)
+            if not chunk:
+                break
+            buf += chunk
+            loc = buf.find(self.START_MARKER + app_marker)
+        return loc
 
     @property
     def exif(self):
@@ -48,7 +57,7 @@ class AppMarkerSegment(object):
         self._extract_exif_data()
 
     def _extract_exif_data(self):
-        offset = (self.offset + JPEGImageFile.HEADER_LEN)
+        offset = (self.offset + JPEGImage.HEADER_LEN)
         self.exif_data = EXIFData(self.image, offset, self.length - offset)
 
 
@@ -404,7 +413,7 @@ def main():
         print "usage:", __file__, "filename"
         sys.exit(1)
     fname = sys.argv[1]
-    img = JPEGImageFile(fname)
+    img = JPEGImage(open(fname, "rb"))
     for k,v in sorted(img.exif.items()):
         print "%s: %s" % (k, v)
 
