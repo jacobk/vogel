@@ -20,28 +20,27 @@ class ExifTest(unittest.TestCase):
         self.resource_dir = os.path.join(os.path.dirname(__file__),
                                          "resources")
         self.exif_photos_dir = os.path.join(self.resource_dir, "with_exif")
+        self.gather_exif_photos()
+
+    def gather_exif_photos(self):
+        self.exif_photos = []
+        for root, dirs, files in os.walk(self.exif_photos_dir):
+            self.exif_photos.extend(os.path.join(root, f) for f in files if
+                                    fnmatch.fnmatch(f, "*.jp*g"))
 
     def verify_correct_meta(self, exif, filepath=None):
         for t in self.MANDATORY_TAGS:
             self.assertTrue(t in exif, "%s not in %s" % (t, filepath))
 
     def test_extract_mandatory_metadata_from_string(self):
-        pictures = []
-        for root, dirs, files in os.walk(self.exif_photos_dir):
-            pictures.extend(os.path.join(root, f) for f in files if
-                            fnmatch.fnmatch(f, "*.jp*g"))
-        for picture_path in pictures:
+        for picture_path in self.exif_photos:
             with open(picture_path, "rb") as picture_file:
                 picture_data = picture_file.read()
                 exif = vogel.jpeg.Exif(picture_data)
                 self.verify_correct_meta(exif, filepath=picture_path)
 
     def test_extract_mandatory_metadata_from_file(self):
-        pictures = []
-        for root, dirs, files in os.walk(self.exif_photos_dir):
-            pictures.extend(os.path.join(root, f) for f in files if
-                            fnmatch.fnmatch(f, "*.jp*g"))
-        for picture_path in pictures:
+        for picture_path in self.exif_photos:
             with open(picture_path, "rb") as picture_file:
                 exif = vogel.jpeg.Exif(picture_file)
                 self.verify_correct_meta(exif, filepath=picture_path)
