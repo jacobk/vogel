@@ -69,6 +69,7 @@ class Exif(object):
     def all(self):
         return self.app1_segment.exif_data.tiff_frame.ifd_entries
 
+
 class AppMarkerSegment(object):
     def __init__(self, image, offset, length):
         self.image = image
