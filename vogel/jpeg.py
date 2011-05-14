@@ -50,7 +50,7 @@ class Exif(object):
             self.image.seek(offset)
             marker = self.image.read(2)
         if not marker == self.APP1:
-            # Fallback to searching
+            # Not "pure" Exif or JFIF, Falling back to searching
             offset = self._find_exif_marker(offset)
         return offset
 
