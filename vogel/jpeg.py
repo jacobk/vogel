@@ -8,7 +8,7 @@ class JPEGError(Exception):
     """Base class for exception in the JPEG module"""
 
 
-class JPEGImage(object):
+class Metadata(object):
     START_MARKER = "\xff"
     SOI = "\xd8"
     APP1 = "\xe1"
@@ -16,7 +16,7 @@ class JPEGImage(object):
 
     def __init__(self, image):
         if isinstance(image, basestring):
-            self.image = StringIO(image)
+            self.image = StringIO.StringIO(image)
         else:
             self.image = image
         self._verify_jpeg()
@@ -46,7 +46,7 @@ class JPEGImage(object):
         return loc
 
     @property
-    def exif(self):
+    def all(self):
         return self.app1_segment.exif_data.tiff_frame.ifd_entries
 
 class AppMarkerSegment(object):
@@ -57,7 +57,7 @@ class AppMarkerSegment(object):
         self._extract_exif_data()
 
     def _extract_exif_data(self):
-        offset = (self.offset + JPEGImage.HEADER_LEN)
+        offset = (self.offset + Metadata.HEADER_LEN)
         self.exif_data = EXIFData(self.image, offset, self.length - offset)
 
 
@@ -169,7 +169,7 @@ class TIFFFrame(object):
         40960: ("FlashpixVersion", "0100", {"0100": 
                 "Flashpix Format Version 1.0", OTHER: RES}),
         # Tag Relating to Image Data Characteristics
-        40961: ("ColorSpace", None, {1: "sRGB", 0xFFFF: "Uncalibrated",
+        40961: ("ColorSpace", 1, {1: "sRGB", 0xFFFF: "Uncalibrated",
                 OTHER: RES}),
         42240: ("Gamma", None, {}),
 
@@ -391,7 +391,7 @@ class TIFFFrame(object):
     def _handle_ifd_entry(self, tag, typ, count, value):
         if tag in self.EXIF_IFD_TAGS:
             if tag == 34853:
-                print "skipping GPS"
+                # print "skipping GPS"
                 return
             self._decode_ifd(value)
         else:
@@ -404,19 +404,5 @@ class TIFFFrame(object):
         self.ifd_entries[name] = value
 
     def _unpack(self, format, value):
-        # print "unpacking %r : %r" % (format, value)
         val = struct.unpack(self.bo + format, value)
         return val if len(val) > 1 else val[0] 
-
-def main():
-    if not len(sys.argv) == 2:
-        print "usage:", __file__, "filename"
-        sys.exit(1)
-    fname = sys.argv[1]
-    img = JPEGImage(open(fname, "rb"))
-    for k,v in sorted(img.exif.items()):
-        print "%s: %s" % (k, v)
-
-
-if __name__ == '__main__':
-    main()
