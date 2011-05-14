@@ -19,14 +19,17 @@ class ExifTest(unittest.TestCase):
     def setUp(self):
         self.resource_dir = os.path.join(os.path.dirname(__file__),
                                          "resources")
-        self.exif_photos_dir = os.path.join(self.resource_dir, "with_exif")
-        self.gather_exif_photos()
+        self.exif_photos = self.gather_photos("with_exif")
+        self.noexif_photos = self.gather_photos("no_exif")
+        self.non_jpeg = self.gather_photos("non_jpeg", pattern="*")
 
-    def gather_exif_photos(self):
-        self.exif_photos = []
-        for root, dirs, files in os.walk(self.exif_photos_dir):
-            self.exif_photos.extend(os.path.join(root, f) for f in files if
-                                    fnmatch.fnmatch(f, "*.jp*g"))
+    def gather_photos(self, root, pattern="*.jp*g"):
+        root = os.path.join(self.resource_dir, root)
+        photos = []
+        for root, dirs, files in os.walk(root):
+            photos.extend(os.path.join(root, f) for f in files if
+                          fnmatch.fnmatch(f, pattern))
+        return photos
 
     def verify_correct_meta(self, exif, filepath=None):
         for t in self.MANDATORY_TAGS:
@@ -44,6 +47,23 @@ class ExifTest(unittest.TestCase):
             with open(picture_path, "rb") as picture_file:
                 exif = vogel.jpeg.Exif(picture_file)
                 self.verify_correct_meta(exif, filepath=picture_path)
+
+    def test_jpeg_without_exif_from_string(self):
+        for picture_path in self.noexif_photos:
+            with open(picture_path) as picture_file:
+                picture_data = picture_file.read()
+                self.assertRaises(ValueError, vogel.jpeg.Exif, picture_data)
+
+    def test_jpeg_without_exif_from_file(self):
+        for picture_path in self.noexif_photos:
+            with open(picture_path) as picture_file:
+                self.assertRaises(ValueError, vogel.jpeg.Exif, picture_file)
+
+    def test_nonjpeg_string(self):
+        for picture_path in self.non_jpeg:
+            with open(picture_path) as picture_file:
+                picture_data = picture_file.read()
+                self.assertRaises(ValueError, vogel.jpeg.Exif, picture_data)
 
 
 if __name__ == '__main__':
