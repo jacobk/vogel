@@ -2,13 +2,15 @@ import sys
 import StringIO
 import struct
 import os
+# TODO: Remove import when removing ABC
+import collections
 
 
 class JPEGError(Exception):
     """Base class for exception in the JPEG module"""
 
-
-class Exif(object):
+# TODO: Remove ABC usage to ensure py2.5 compatibility
+class Exif(collections.Mapping):
     START_MARKER = "\xff"
     SOI = START_MARKER + "\xd8"
     APP0 = START_MARKER + "\xe0"
@@ -65,8 +67,24 @@ class Exif(object):
             loc = buf.find(self.APP1)
         return offset + loc
 
+    def __getitem__(self, field_name):
+        return self._entries[field_name]
+
+    def get(self, field_name, default=None):
+        try:
+            return self.__getitem__(field_name)
+        except KeyError:
+            return default
+
+    def __iter__(self):
+        for field, value in self._entries.items():
+            yield (field, value)
+
+    def __len__(self):
+        return len(self._entries)
+
     @property
-    def all(self):
+    def _entries(self):
         return self.app1_segment.exif_data.tiff_frame.ifd_entries
 
 
