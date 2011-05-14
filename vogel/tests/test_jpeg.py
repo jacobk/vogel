@@ -36,6 +36,16 @@ class ExifTest(unittest.TestCase):
                 exif = vogel.jpeg.Exif(picture_data)
                 self.verify_correct_meta(exif, filepath=picture_path)
 
+    def test_extract_mandatory_metadata_from_file(self):
+        pictures = []
+        for root, dirs, files in os.walk(self.exif_photos_dir):
+            pictures.extend(os.path.join(root, f) for f in files if
+                            fnmatch.fnmatch(f, "*.jp*g"))
+        for picture_path in pictures:
+            with open(picture_path, "rb") as picture_file:
+                exif = vogel.jpeg.Exif(picture_file)
+                self.verify_correct_meta(exif, filepath=picture_path)
+
 
 if __name__ == '__main__':
     unittest.main()
