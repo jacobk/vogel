@@ -2,15 +2,13 @@ import sys
 import StringIO
 import struct
 import os
-# TODO: Remove import when removing ABC
-import collections
 
 
 class JPEGError(Exception):
     """Base class for exception in the JPEG module"""
 
-# TODO: Remove ABC usage to ensure py2.5 compatibility
-class Exif(collections.Mapping):
+
+class Exif(object):
     START_MARKER = "\xff"
     SOI = START_MARKER + "\xd8"
     APP0 = START_MARKER + "\xe0"
@@ -82,6 +80,9 @@ class Exif(collections.Mapping):
 
     def __len__(self):
         return len(self._entries)
+
+    def __contains__(self, field_name):
+        return field_name in self._entries
 
     @property
     def _entries(self):
