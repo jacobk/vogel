@@ -8,10 +8,12 @@ class JPEGError(Exception):
     """Base class for exception in the JPEG module"""
 
 
-class Metadata(object):
+class Exif(object):
     START_MARKER = "\xff"
-    SOI = "\xd8"
-    APP1 = "\xe1"
+    SOI = START_MARKER + "\xd8"
+    APP0 = START_MARKER + "\xe0"
+    APP1 = START_MARKER + "\xe1"
+    APP2 = START_MARKER + "\xe2"
     HEADER_LEN = 4
 
     def __init__(self, image):
@@ -20,30 +22,48 @@ class Metadata(object):
         else:
             self.image = image
         self._verify_jpeg()
+        # self._verify_exif()
         self._extract_app1_data()
 
     def _verify_jpeg(self):
         self.image.seek(0)
-        if not self.image.read(2) == self.START_MARKER + self.SOI:
+        if not self.image.read(2) == self.SOI:
             raise ValueError("Invalid JPEG image")
 
     def _extract_app1_data(self):
-        offset = self._find_app_marker(self.APP1)
+        offset = self._get_exif_offset()
+        if offset < 0:
+            raise ValueError("Invalid Exif image")
         self.image.seek(offset)
         header = self.image.read(self.HEADER_LEN)
         marker, length = struct.unpack(">HH", header)
         self.app1_segment = AppMarkerSegment(self.image, offset, length)
 
-    def _find_app_marker(self, app_marker):
-        self.image.seek(0)
+    def _get_exif_offset(self):
+        # Assume strict std compliance
+        offset = 2 # APP1 Should always follow SOI when Exif.
+        self.image.seek(offset)
+        marker = self.image.read(2)
+        if marker == self.APP0: # Handle JFIF also wanting to be first...
+            (app0_len,) = struct.unpack(">H", self.image.read(2))
+            offset += 2 + app0_len # Compensate for marker + app0 segment
+            self.image.seek(offset)
+            marker = self.image.read(2)
+        if not marker == self.APP1:
+            # Fallback to searching
+            offset = self._find_exif_marker(offset)
+        return offset
+
+    def _find_exif_marker(self, offset):
+        self.image.seek(offset)
         buf, loc = "", -1
         while loc < 0:
             chunk = self.image.read(1024)
             if not chunk:
                 break
             buf += chunk
-            loc = buf.find(self.START_MARKER + app_marker)
-        return loc
+            loc = buf.find(self.APP1)
+        return offset + loc
 
     @property
     def all(self):
@@ -57,7 +77,7 @@ class AppMarkerSegment(object):
         self._extract_exif_data()
 
     def _extract_exif_data(self):
-        offset = (self.offset + Metadata.HEADER_LEN)
+        offset = (self.offset + Exif.HEADER_LEN)
         self.exif_data = EXIFData(self.image, offset, self.length - offset)
 
 
@@ -174,7 +194,7 @@ class TIFFFrame(object):
         42240: ("Gamma", None, {}),
 
         # Tags Relating to Image Configuration
-        37121: ("ComponentsConfiguration", None, {}), # TODO: Default val
+        37121: ("ComponentsConfiguration", "1230", {}), # TODO: Verify default
         37122: ("CompressedBitsPerPixel", None, {}),
         40962: ("PixelXDimension", None, {}),
         40963: ("PixelYDimension", None, {}),
