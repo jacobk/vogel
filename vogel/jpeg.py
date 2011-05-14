@@ -63,7 +63,7 @@ class Exif(object):
                 break
             buf += chunk
             loc = buf.find(self.APP1)
-        return offset + loc
+        return loc if loc < 0 else loc + offset
 
     def __getitem__(self, field_name):
         return self._entries[field_name]
