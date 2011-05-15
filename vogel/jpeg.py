@@ -15,7 +15,7 @@ class Exif(object):
     APP1 = START_MARKER + "\xe1"
     APP2 = START_MARKER + "\xe2"
 
-    def __init__(self, image):
+    def __init__(self, image, raw=False):
         if isinstance(image, basestring):
             self.image = StringIO.StringIO(image)
         else:
@@ -121,36 +121,19 @@ class EXIFData(object):
         self.tiff_structure = TIFFStructure(self.image, offset)
 
 
+
+
 class TIFFStructure(object):
     IFD_TYPES = {
-        # Type: (fmt, size, name)
-        # 8-bit unsigned integer,
-        1: ("B", 1, "BYTE"),
-
-        # 8-bit byte that contains a 7-bit ASCII code; the last byte must be 
-        # NUL (binary zero)
-        2: ("s", 1, "ASCII"),
-
-        # 16-bit (2-byte) unsigned integer.
-        3: ("H", 2, "SHORT"),
-
-        # 32-bit (4-byte) unsigned integer.
-        4: ("I", 4, "LONG"), 
-
-        # Two LONGs: the first represents the numerator of a fraction; 
-        # the second, the denominator.
-        5: ("II", 8, "RATIONAL"),
-
-        # An 8-bit byte that may take any value depending on the field 
-        # definition.
-        7: ("x", 1, "UNDEFINED"),
-
-        # (4-byte) signed integer (2's complement notation).
-        9: ("i", 4, "SLONG"),
-
-        # Two SLONGs. The first SLONG is the numerator and the second SLONG is 
-        # the denominator.
-        10: ("ii", 8, "SRATIONAL"),
+        # Type: (fmt, size, name, parse_fn)
+        1: ("B", 1, "BYTE", None),
+        2: ("s", 1, "ASCII", lambda x: x[:-1]),
+        3: ("H", 2, "SHORT", None),
+        4: ("I", 4, "LONG", None), 
+        5: ("II", 8, "RATIONAL", None),
+        7: ("x", 1, "UNDEFINED", None),
+        9: ("i", 4, "SLONG", None),
+        10: ("ii", 8, "SRATIONAL", None),
     }
     RES = "RESERVED"
     OTHER = -1
@@ -412,7 +395,7 @@ class TIFFStructure(object):
     def _decode_value(self, typ, bytes, count):
         if typ == 7: # undefined
             return bytes
-        fmt, size, _ = self.IFD_TYPES[typ]
+        fmt, size, _, parse_fn = self.IFD_TYPES[typ]
         byte_len = size * count
         if byte_len > self.IFD_ENTRY_COUNT_LEN:
             pos = self.image.tell()
@@ -423,7 +406,10 @@ class TIFFStructure(object):
             fmt = "%d%s" % (count, fmt)
         else:
             fmt = fmt * count
-        return self._unpack(fmt, bytes[:byte_len])
+        value = self._unpack(fmt, bytes[:byte_len])
+        if parse_fn:
+            value = parse_fn(value)
+        return value
 
     def _handle_ifd_entry(self, tag, typ, count, value):
         if tag in self.EXIF_IFD_TAGS:
