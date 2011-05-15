@@ -14,7 +14,6 @@ class Exif(object):
     APP0 = START_MARKER + "\xe0"
     APP1 = START_MARKER + "\xe1"
     APP2 = START_MARKER + "\xe2"
-    HEADER_LEN = 4
 
     def __init__(self, image):
         if isinstance(image, basestring):
@@ -31,15 +30,12 @@ class Exif(object):
             raise ValueError("Invalid JPEG image")
 
     def _extract_app1_data(self):
-        offset = self._get_exif_offset()
+        offset = self._get_app1_offset()
         if offset < 0:
             raise ValueError("Invalid Exif image")
-        self.image.seek(offset)
-        header = self.image.read(self.HEADER_LEN)
-        marker, length = struct.unpack(">HH", header)
-        self.app1_segment = AppMarkerSegment(self.image, offset, length)
+        self.app1_segment = APP1Segment(self.image, offset)
 
-    def _get_exif_offset(self):
+    def _get_app1_offset(self):
         # Assume strict std compliance
         offset = 2 # APP1 Should always follow SOI when Exif.
         self.image.seek(offset)
@@ -51,10 +47,10 @@ class Exif(object):
             marker = self.image.read(2)
         if not marker == self.APP1:
             # Not "pure" Exif or JFIF, Falling back to searching
-            offset = self._find_exif_marker(offset)
+            offset = self._find_app1_marker(offset)
         return offset
 
-    def _find_exif_marker(self, offset):
+    def _find_app1_marker(self, offset):
         self.image.seek(offset)
         buf, loc = "", -1
         while loc < 0:
@@ -86,19 +82,20 @@ class Exif(object):
 
     @property
     def _entries(self):
-        return self.app1_segment.exif_data.tiff_frame.ifd_entries
+        return self.app1_segment.exif_data.tiff_structure.ifd_entries
 
 
-class AppMarkerSegment(object):
-    def __init__(self, image, offset, length):
+class APP1Segment(object):
+    HEADER_LEN = 4
+
+    def __init__(self, image, offset):
         self.image = image
         self.offset = offset
-        self.length = length
         self._extract_exif_data()
 
     def _extract_exif_data(self):
-        offset = (self.offset + Exif.HEADER_LEN)
-        self.exif_data = EXIFData(self.image, offset, self.length - offset)
+        offset = (self.offset + self.HEADER_LEN)
+        self.exif_data = EXIFData(self.image, offset)
 
 
 class EXIFData(object):
@@ -106,12 +103,11 @@ class EXIFData(object):
     PADDING = "\x00"
     HEADER_LEN = 6
 
-    def __init__(self, image, offset, length):
+    def __init__(self, image, offset):
         self.image = image
         self.offset = offset
-        self.length = length
         self._verify_exif()
-        self._extract_tiff_frame()
+        self._extract_tiff_structure()
 
     def _verify_exif(self):
         self.image.seek(self.offset)
@@ -120,12 +116,12 @@ class EXIFData(object):
         if not (id_code, padding) == (self.ID_CODE, self.PADDING):
             raise ValueError("Invalid Exif data")
 
-    def _extract_tiff_frame(self):
+    def _extract_tiff_structure(self):
         offset = self.offset + self.HEADER_LEN
-        self.tiff_frame = TIFFFrame(self.image, offset, self.length - offset)
+        self.tiff_structure = TIFFStructure(self.image, offset)
 
 
-class TIFFFrame(object):
+class TIFFStructure(object):
     IFD_TYPES = {
         # Type: (fmt, size, name)
         # 8-bit unsigned integer,
@@ -160,6 +156,8 @@ class TIFFFrame(object):
     OTHER = -1
     IFD_TAGS = {
         # Tag (DEC): (Name, Default, ValueMapping)
+        
+        # TIFF Tags
         # Tags relating to image data structure
         256: ("ImageWidth", None, {}),
         257: ("ImageLength", None, {}),
@@ -179,21 +177,21 @@ class TIFFFrame(object):
         283: ("YResolution", (72,1), {}),
         296: ("ResolutionUnit", 2, {2: "inches", 3: "centimeters", 
               OTHER: RES}),
-
+    
         # Tags relating to recording offset
         273: ("StripOffsets", None, {}),
         278: ("RowsPerStrip", None, {}),
         279: ("StripByteCounts", None, {}),
         513: ("JPEGInterchangeFormat", None, {}),
         514: ("JPEGInterchangeFormatLength", None, {}),
-
+    
         # Tags relating to image data characteristics
         301: ("TransferFunction", None, {}),
         318: ("WhitePoint", None, {}),
         319: ("PrimaryChromaticities", None, {}),
         529: ("YCbCrCoefficients", None, {}), # TODO: "see Annex D"
         532: ("ReferenceBlackWhite", None, {}), # TODO: Depends on other val
-
+    
         # Other tags
         306: ("DateTime", None, {}),
         270: ("ImageDescription", None, {}),
@@ -202,7 +200,7 @@ class TIFFFrame(object):
         305: ("Software", None, {}),
         315: ("Artist", None, {}),
         33432: ("Copyright", None, {}),
-
+    
         # EXIF_IFD_TAGS
         # Tags Relating to Version
         36864: ("ExifVersion", "0230", {}),
@@ -212,27 +210,27 @@ class TIFFFrame(object):
         40961: ("ColorSpace", 1, {1: "sRGB", 0xFFFF: "Uncalibrated",
                 OTHER: RES}),
         42240: ("Gamma", None, {}),
-
+    
         # Tags Relating to Image Configuration
         37121: ("ComponentsConfiguration", "1230", {}), # TODO: Verify default
         37122: ("CompressedBitsPerPixel", None, {}),
         40962: ("PixelXDimension", None, {}),
         40963: ("PixelYDimension", None, {}),
-
+    
         # Tags Relating to User Information
         37500: ("MakerNote", None, {}),
         37510: ("UserComment", None, {}),
-
+    
         # Tag Relating to Related File Information
         40964: ("RelatedSoundFile", None, {}),
-
+    
         # Tags Relating to Date and Time
         36867: ("DateTimeOriginal", None, {}),
         36868: ("DateTimeDigitized", None, {}),
         37520: ("SubSecTime", None, {}),
         37521: ("SubSecTimeOriginal", None, {}),
         37522: ("SubSecTimeDigitized", None, {}),
-
+    
         # Tags Relating to Picture-Taking Conditions
         33434: ("ExposureTime", None, {}),
         33437: ("FNumber", None, {}),
@@ -323,7 +321,7 @@ class TIFFFrame(object):
         41995: ("DeviceSettingDescription", None, {}), # TODO
         41996: ("SubjectDistanceRange", None, {0: "Unknown", 1: "Macro",
                 2: "Close view", 3: "Distant view", OTHER: RES}),
-
+    
         # Other Tags
         42016: ("ImageUniqueID", None, {}),
         42032: ("CameraOwnerName", None, {}),
@@ -346,18 +344,17 @@ class TIFFFrame(object):
     MAGIC_LEN = 2
     IFD_OFFSET_LEN = 4
     IFD_COUNT_LEN = 2
-    IFD_E_LEN = 12
-    IFD_E_COUNT_LEN = 4
+    IFD_ENTRY_LEN = 12
+    IFD_ENTRY_COUNT_LEN = 4
 
-    def __init__(self, image, offset, length):
+    def __init__(self, image, offset):
         self.image = image
         self.offset = offset
-        self.length = length
         self.bo = ">" # default to big endian
         self.ifd_entries = {}
         self._init_ifd_defaults()
         self._verify_tiff()
-        self._decode_tiff_frame()
+        self._decode_tiff_structure()
 
     def _init_ifd_defaults(self):
         for name, default, mapping in self.IFD_TAGS.values():
@@ -392,7 +389,7 @@ class TIFFFrame(object):
         ifd0_offset = self._unpack("I", ifd0_offset)
         return ifd0_offset
 
-    def _decode_tiff_frame(self):
+    def _decode_tiff_structure(self):
         ifd_offset = self._decode_tiff_header()
         self._decode_ifd(ifd_offset)
 
@@ -402,7 +399,7 @@ class TIFFFrame(object):
         self.image.seek(self.offset + offset)
         count = self._unpack("H", self.image.read(self.IFD_COUNT_LEN))
         for i in xrange(count):
-            self._decode_ifd_entry(self.image.read(self.IFD_E_LEN))
+            self._decode_ifd_entry(self.image.read(self.IFD_ENTRY_LEN))
         next_offset = self.image.read(self.IFD_OFFSET_LEN)
         next_offset = self._unpack("I", next_offset)
         self.image.seek(pos)
@@ -417,7 +414,7 @@ class TIFFFrame(object):
             return bytes
         fmt, size, _ = self.IFD_TYPES[typ]
         byte_len = size * count
-        if byte_len > self.IFD_E_COUNT_LEN:
+        if byte_len > self.IFD_ENTRY_COUNT_LEN:
             pos = self.image.tell()
             self.image.seek(self.offset + self._unpack("I", bytes))
             bytes = self.image.read(byte_len)
