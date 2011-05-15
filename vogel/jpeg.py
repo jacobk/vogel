@@ -15,13 +15,12 @@ class Exif(object):
     APP1 = START_MARKER + "\xe1"
     APP2 = START_MARKER + "\xe2"
 
-    def __init__(self, image, raw=False):
+    def __init__(self, image):
         if isinstance(image, basestring):
             self.image = StringIO.StringIO(image)
         else:
             self.image = image
         self._verify_jpeg()
-        # self._verify_exif()
         self._extract_app1_data()
 
     def _verify_jpeg(self):
