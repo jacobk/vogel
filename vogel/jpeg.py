@@ -443,3 +443,6 @@ class TIFFStructure(object):
     def _unpack(self, format, value):
         val = struct.unpack(self.bo + format, value)
         return val if len(val) > 1 else val[0] 
+
+
+FIELDS = sorted([field for _, (field, _, _) in TIFFStructure.IFD_TAGS.items()])
