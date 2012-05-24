@@ -1,15 +1,22 @@
-# TODO
-
-* Refactor TIFFFrame into more self contained units
-* Testing
-
 # About
 
 Simple JPEG Exif data reader in pure Python
 
-## Name
+```python
+import vogel
 
-http://en.wikipedia.org/wiki/Herbert_and_Dorothy_Vogel
+with open("/Users/jacobk/lolwut.jpeg", "rb") as picture_file:
+  exif = vogel.jpeg.Exif(picture_file)
+  try:
+    exif_time = exif["DateTimeDigitized"]
+  except ValueError:
+    print "Invalid EXIF data :("
+  except KeyError:
+    print "No DateTimeDigitized data :("
+    
+# Supported fields
+print vogel.FIELDS
+```
 
 ## License
 
